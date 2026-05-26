@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from typing import Optional
 from datetime import datetime
 
@@ -20,6 +20,13 @@ class CornClassBase(BaseModel):
     favored_conditions: str
     preventive_management: str
     treatment: str
+
+    @field_validator('display_name', 'description', 'symptoms', 'favored_conditions', 'preventive_management', 'treatment')
+    @classmethod
+    def cannot_be_empty(cls, v: str) -> str:
+        if not v or not v.strip():
+            raise ValueError('Field cannot be empty or contain only whitespace')
+        return v.strip()
 
 class CornClassUpdate(CornClassBase):
     """Properties permitted to be updated by an admin."""
