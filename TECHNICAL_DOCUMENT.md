@@ -45,7 +45,9 @@ graph TD
 
 ### Frontend (Expo React Native)
 - **Expo (v56.0.4)**: Framework de código abierto sobre React Native que acelera el desarrollo móvil al proporcionar una base multiplataforma y una API unificada. Permite compilar a web nativa y generar de forma sencilla el archivo **APK** compilado para Android.
-- **Expo Image Picker (v15)**: API multiplataforma para interactuar de forma segura y consistente con la cámara del dispositivo y los álbumes de fotos.
+- **Expo Image Picker (v15)**: API multiplataforma para interactuar de forma segura y consistente con la cámara del dispositivo y los álbumes de fotos en entornos nativos (Android/iOS).
+- **WebCamera Custom (HTML5)**: Componente web nativo que utiliza `navigator.mediaDevices.getUserMedia` acoplado a un visor `<video>` de HTML5. Esto resuelve el comportamiento de `expo-image-picker` en la web, el cual por defecto solo abre el explorador de archivos local en lugar de la webcam del portátil o dispositivo de escritorio.
+- **Notificaciones Toast Custom**: Un contenedor flotante centralizado de Toasts asíncronos y auto-descartables que evita el uso de `Alert.alert` de React Native (el cual genera pantallas de overlay del depurador de Expo que interrumpen el flujo del usuario en la web).
 
 ---
 
@@ -72,6 +74,14 @@ flowchart LR
 4. **Batch Dimension**: Se agrega un eje extra en el index `0` mediante `np.expand_dims(img_array, axis=0)`, transformando el tensor de entrada de dimensiones $(224, 224, 3)$ a $(1, 224, 224, 3)$. Esto simula un "lote" de una sola imagen exigido por Keras.
 5. **Inferencia y Softmax**: La función `.predict()` de Keras evalúa la matriz y retorna una matriz probabilística de tamaño $(1, 3)$. Aplicando la operación matemática `argmax` ($Index = \arg\max(P)$), identificamos el índice con mayor peso numérico para asignar la etiqueta final y determinar el porcentaje de certeza diagnóstica.
 
+### Solución al Conflicto de Deserialización de Keras (Modelo V3):
+Debido a que el modelo fue entrenado en Google Colab con una versión moderna de Keras y serializado en formato `.keras`, su importación directa mediante `tf.keras.models.load_model()` fallaba por incompatibilidades de deserialización en el entorno del contenedor Docker (TensorFlow 2.16.1). 
+Para solucionarlo, en `model_loader.py` se implementó una **Reconstrucción Estructural Manual**:
+- Se inicializa el modelo base **MobileNetV2** sin su capa de clasificación final.
+- Se define la arquitectura de salida exacta mediante la API Funcional (capa `GlobalAveragePooling2D` conectada a una capa `Dense` de 3 neuronas con activación Softmax).
+- Se ensambla el grafo funcional completo.
+- Se cargan únicamente los coeficientes numéricos mediante `model.load_weights()`. Esto independiza la lógica de inferencia de los metadatos serializados del framework original.
+
 ---
 
 ## 🔒 4. Arquitectura de Seguridad (JWT y Autenticación Criptográfica)
@@ -95,3 +105,16 @@ El entorno modular se compone de dos contenedores orquestados mediante `docker-c
    - Basado en la imagen oficial de Python-slim para reducir la superficie de ataque y el tamaño final de la imagen.
    - Integra la biblioteca de compilación C `libpq-dev` y herramientas de desarrollo para asegurar el correcto acoplamiento del adaptador nativo de PostgreSQL (`psycopg2`).
    - El script `entrypoint.sh` implementa un bucle de bloqueo activo que realiza sondeos de red al puerto `5432` del contenedor de base de datos antes de gatillar Alembic y Uvicorn, previniendo errores de conexión durante el encendido concurrente.
+
+---
+
+## 🛡️ 6. Validación Rigurosa de Campos Relacionales
+
+Para garantizar la integridad semántica y evitar que el panel administrativo inserte registros incompletos o con cadenas vacías en la base de datos PostgreSQL, se acoplaron dos niveles de validación:
+
+1. **Capa Backend (Pydantic field_validators)**:
+   - Los esquemas `CornClassUpdate` y `CornClassCreate` en `Backend/app/schemas.py` implementan validadores a nivel de campo utilizando el decorador `@field_validator`.
+   - Remueven los espacios laterales mediante `.strip()` y rechazan de forma preventiva cualquier texto que esté vacío o contenga únicamente espacios, arrojando un error HTTP `422 Unprocessable Entity`.
+2. **Capa Frontend (Filtros de Entrada React)**:
+   - El formulario de edición en `admin.tsx` realiza la limpieza de cadenas (`.trim()`) antes de serializar la petición JSON.
+   - Si se detecta algún campo vacío, bloquea la comunicación con la API e indica inmediatamente un error local mediante el sistema de Toasts.
