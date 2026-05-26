@@ -118,3 +118,18 @@ Para garantizar la integridad semántica y evitar que el panel administrativo in
 2. **Capa Frontend (Filtros de Entrada React)**:
    - El formulario de edición en `admin.tsx` realiza la limpieza de cadenas (`.trim()`) antes de serializar la petición JSON.
    - Si se detecta algún campo vacío, bloquea la comunicación con la API e indica inmediatamente un error local mediante el sistema de Toasts.
+
+---
+
+## 📖 7. Documentación Estructurada y Autenticación Global (OpenAPI / Swagger)
+
+Para facilitar la adopción e integración de la API, el backend expone una especificación OpenAPI estructurada mediante etiquetas y descripciones detalladas:
+
+1. **Estructura por Grupos (Tags)**: Los endpoints están clasificados en categorías lógicas (`Authentication`, `Predictions`, `Corn Classes`, `System`) con descripciones descriptivas que documentan la responsabilidad de cada módulo.
+2. **Restricción de Parámetros mediante Enums**: Para los endpoints `GET /api/classes/{class_name}` y `PUT /api/classes/{class_name}`, el parámetro `class_name` está tipado con el enum `CornClassName` (`Blight`, `Common_Rust`, `Healthy`). Esto expone automáticamente un menú desplegable de selección en la UI de Swagger en lugar de una entrada de texto libre, previniendo errores por typos.
+3. **Mecanismo de Login Dual (JSON y Form Data)**:
+   - El endpoint `/api/auth/login` inspecciona la cabecera `Content-Type` de la solicitud.
+   - Si detecta `application/json`, procesa el cuerpo en formato JSON (utilizado por el frontend móvil en React Native).
+   - Si detecta `application/x-www-form-urlencoded`, procesa los campos de formulario (utilizado nativamente por el botón **Authorize** de Swagger UI).
+4. **Sobrescritura del Esquema OpenAPI**: Se intercepta la generación del esquema OpenAPI (`app.openapi`) para forzar la inclusión de los modelos de validación de Pydantic y registrar de forma explícita la capacidad multi-formato del endpoint de autenticación. Esto permite iniciar sesión directamente en Swagger UI y propagar el token JWT de forma global.
+

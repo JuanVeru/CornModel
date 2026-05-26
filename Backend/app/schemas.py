@@ -1,6 +1,13 @@
 from pydantic import BaseModel, field_validator
 from typing import Optional
 from datetime import datetime
+from enum import Enum
+
+class CornClassName(str, Enum):
+    """Enumeration of allowed corn leaf classes."""
+    Blight = "Blight"
+    Common_Rust = "Common_Rust"
+    Healthy = "Healthy"
 
 class UserLogin(BaseModel):
     """Admin login credentials structure."""

@@ -103,7 +103,24 @@ El modelo Keras analiza la imagen y la clasifica en una de las siguientes tres e
 | **POST** | `/api/predict` | Pública | Envía una imagen (`file`) en `multipart/form-data` para recibir el diagnóstico y su literatura. |
 | **POST** | `/api/auth/login` | Pública | Recibe credenciales JSON y devuelve un token de portador JWT. |
 | **GET** | `/api/classes` | Pública | Obtiene un arreglo con la información detallada de los 3 cultivos. |
-| **GET** | `/api/classes/{class_name}` | Pública | Obtiene los detalles específicos de una sola clase foliar. |
-| **PUT** | `/api/classes/{class_name}` | **JWT Requerido** | Actualiza la literatura de una clase (display_name, descripción, síntomas, manejo, etc.). |
+| **GET** | `/api/classes/{class_name}` | Pública | Obtiene los detalles específicos de una sola clase foliar (`Blight`, `Common_Rust`, `Healthy`). |
+| **PUT** | `/api/classes/{class_name}` | **JWT Requerido** | Actualiza la literatura de una clase (`Blight`, `Common_Rust`, `Healthy`). |
 | **GET** | `/api/auth/me` | **JWT Requerido** | Valida el estado de la sesión activa del administrador. |
 | **GET** | `/api/health` | Pública | Retorna un estado básico de salud de la API. |
+
+---
+
+## 📖 Documentación Interactiva (Swagger / OpenAPI)
+
+La API cuenta con documentación interactiva estructurada y autogenerada para facilitar las pruebas y depuración del backend.
+
+- **Swagger UI**: [http://localhost:8000/docs](http://localhost:8000/docs)
+- **ReDoc**: [http://localhost:8000/redoc](http://localhost:8000/redoc)
+
+### Autenticación en Swagger UI
+Para probar endpoints protegidos (como la actualización de literatura de plantas) directamente en Swagger UI:
+1. Haz clic en el botón **Authorize** (candado verde) en la esquina superior derecha.
+2. Introduce las credenciales administrativas (Usuario: `admin`, Contraseña: `adminpassword`).
+3. Haz clic en **Authorize** y cierra la ventana emergente.
+4. El token de sesión se guardará globalmente y se enviará de forma transparente en las cabeceras de todas tus peticiones en Swagger UI.
+
