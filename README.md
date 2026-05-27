@@ -12,7 +12,7 @@ CornGuard AI es una aplicación full-stack interactiva y de alto rendimiento dis
 4. **Cámara Web Nativa (HTML5)**: Integración de cámara nativa en navegadores web de escritorio a través de HTML5 `getUserMedia`, superando la limitación de Expo que abre el selector de archivos local.
 5. **Notificaciones por Toasts**: Alertas personalizadas en el frontend mediante Toasts automatizados que eliminan los overlays bloqueantes de la consola del desarrollador web.
 6. **Panel Administrativo Protegido (Admin)**: Módulo de autenticación segura por JWT con validación y limpieza de campos al guardar cambios de tratamientos.
-7. **Dockerizado y Modular**: Configuración completa con Docker Compose para desplegar el backend de FastAPI y la base de datos PostgreSQL de forma aislada.
+7. **Dockerizado y Modular**: Configuración completa con Docker Compose para desarrollo local. En producción, el backend se despliega en Render, la base de datos en Supabase y el frontend en Vercel.
 8. **Interfaz de Alto Impacto Visual**: UI responsive construida en Expo con un diseño orgánico premium, glassmorphism, degradados lineales y fondos con iluminación ambiental fluida.
 
 ---
@@ -20,14 +20,14 @@ CornGuard AI es una aplicación full-stack interactiva y de alto rendimiento dis
 ## 🛠️ Requisitos de Software
 
 Antes de iniciar, asegúrate de tener instalado en tu computadora:
-- **Docker** y **Docker Compose**
+- **Docker** y **Docker Compose** (solo necesario para desarrollo local)
 - **Node.js** (v18 o superior, para ejecutar el frontend en desarrollo local)
 
 ---
 
-## 📦 Despliegue Rápido (Docker Compose)
+## 📦 Desarrollo Local (Docker Compose)
 
-Para levantar el backend y la base de datos PostgreSQL de manera automatizada:
+Para levantar el backend y la base de datos PostgreSQL de manera automatizada en tu entorno local:
 
 1. Abre tu terminal en la carpeta principal del proyecto (`CornModel`).
 2. Levanta los contenedores ejecutando el siguiente comando:
@@ -66,8 +66,10 @@ Para iniciar la aplicación móvil/web en tu entorno de desarrollo local:
    - **Emulador Android/iOS**: Presiona `a` para Android o `i` para iOS.
 
 > [!TIP]
-> **Configuración de IP para APK o Dispositivos Físicos**
+> **Configuración de IP para APK o Dispositivos Físicos (Local)**
 > Si estás probando la aplicación en un celular físico o planeas compilar un archivo APK, edita el archivo `frontend/src/constants/config.ts` y cambia `localhost` por la dirección IP local de tu computadora (por ejemplo, `http://192.168.1.15:8000`) para que tu celular pueda comunicarse con el backend dockerizado.
+>
+> **En producción**, la URL del backend se configura mediante la variable de entorno `EXPO_PUBLIC_API_URL` definida en el panel de Vercel, sin necesidad de modificar el código fuente.
 
 ---
 
@@ -83,6 +85,37 @@ Al iniciar el backend por primera vez, se crea automáticamente una cuenta únic
 > ```bash
 > cp .env.example .env
 > ```
+
+---
+
+## ☁️ Despliegue en Producción (Supabase + Render + Vercel)
+
+La arquitectura de producción separa los tres componentes del sistema en servicios de nube gratuitos especializados:
+
+| Componente | Servicio | Notas |
+| :--- | :--- | :--- |
+| **Base de Datos** | [Supabase](https://supabase.com/) | PostgreSQL gestionado. Usar la URL del **Connection Pooler** (puerto `6543`) para garantizar compatibilidad con IPv4. |
+| **Backend (API)** | [Render](https://render.com/) | Desplegado como **Web Service** con runtime **Docker**, apuntando al directorio raíz `Backend`. |
+| **Frontend (Web)** | [Vercel](https://vercel.com/) | Desplegado desde la rama `deploy`, directorio raíz `frontend`, compilado con `expo export -p web`. |
+
+### Variables de Entorno requeridas en Render (Backend):
+
+| Variable | Descripción |
+| :--- | :--- |
+| `DATABASE_URL` | URI del pooler de Supabase (sin caracteres especiales en la contraseña) |
+| `JWT_SECRET` | Clave secreta larga y aleatoria para firmar los tokens JWT |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` | Minutos de validez del token (recomendado: `120`) |
+| `ADMIN_USERNAME` | Usuario administrador del panel |
+| `ADMIN_PASSWORD` | Contraseña del administrador (sin caracteres especiales) |
+
+### Variables de Entorno requeridas en Vercel (Frontend):
+
+| Variable | Descripción |
+| :--- | :--- |
+| `EXPO_PUBLIC_API_URL` | URL pública del backend en Render (ej. `https://corn-backend.onrender.com`) |
+
+> [!IMPORTANT]
+> La contraseña de la base de datos de Supabase **no debe contener caracteres especiales** (`@`, `$`, `*`, `#`, `%`) ya que el parser de URLs de Alembic los interpreta como sintaxis de interpolación de ConfigParser, causando errores de conexión. Usar únicamente letras, números y guiones.
 
 ---
 

@@ -6,23 +6,27 @@ Este documento detalla la arquitectura de software, el diseño de infraestructur
 
 ## 🏛️ 1. Arquitectura General del Sistema
 
-El sistema implementa una **Arquitectura de Microservicios Desacoplada** organizada en tres capas primarias coordinadas mediante contenedores Docker:
+El sistema implementa una **Arquitectura de Microservicios Desacoplada** organizada en tres capas primarias. En desarrollo local se orquesta con Docker Compose; en producción cada componente se despliega en servicios de nube especializados:
 
 ```mermaid
 graph TD
-    A[Cliente: App Movil / Web Expo] <-->|HTTP / REST y JSON| B[Backend: FastAPI Web Server]
-    B <-->|Inferencia de Imagenes| C[Modelo Keras: MobileNetV2 Backbone]
-    B <-->|SQLAlchemy ORM| D[Base de Datos: PostgreSQL 15]
-    subgraph Entorno Docker Compose
-        B
-        D
+    A[Cliente: App Móvil / Web Expo] <-->|HTTP / REST y JSON| B[Backend: FastAPI en Render]
+    B <-->|Inferencia de Imágenes| C[Modelo Keras: MobileNetV2 Backbone]
+    B <-->|SQLAlchemy ORM / Connection Pooler| D[Base de Datos: PostgreSQL en Supabase]
+    subgraph Producción en la Nube
+        A -- Vercel CDN --> A
+        B -- Render Web Service --> B
+        D -- Supabase Managed DB --> D
+    end
+    subgraph Desarrollo Local
+        E[Docker Compose: FastAPI + PostgreSQL]
     end
 ```
 
 ### Capas del Sistema:
-1. **Capa de Presentación (Frontend)**: Interfaz responsiva interactiva construida en Expo y React Native, compilable para Android, iOS y Web.
-2. **Capa de Lógica de Negocio (Backend)**: Microservicio REST de alto rendimiento en FastAPI para gestionar la autenticación, inferencia por aprendizaje profundo y la gestión del conocimiento fitopatológico.
-3. **Capa de Persistencia (Base de Datos)**: PostgreSQL para el almacenamiento seguro de credenciales cifradas y literatura de diagnóstico fitosanitario.
+1. **Capa de Presentación (Frontend)**: Interfaz responsiva interactiva construida en Expo y React Native, compilable para Android, iOS y Web. En producción se exporta como sitio estático (`expo export -p web`) y se sirve desde **Vercel**.
+2. **Capa de Lógica de Negocio (Backend)**: Microservicio REST de alto rendimiento en FastAPI para gestionar la autenticación, inferencia por aprendizaje profundo y la gestión del conocimiento fitopatológico. En producción se ejecuta en un contenedor Docker en **Render**.
+3. **Capa de Persistencia (Base de Datos)**: PostgreSQL para el almacenamiento seguro de credenciales cifradas y literatura de diagnóstico fitosanitario. En producción gestionado por **Supabase**.
 
 ---
 
@@ -94,9 +98,9 @@ El sistema protege las operaciones críticas de actualización utilizando autent
 
 ---
 
-## 🐳 5. Infraestructura y Despliegue en Contenedores (Docker)
+## 🐳 5. Infraestructura Local (Docker Compose)
 
-El entorno modular se compone de dos contenedores orquestados mediante `docker-compose.yml`:
+Para desarrollo local, el entorno modular se compone de dos contenedores orquestados mediante `docker-compose.yml`:
 
 1. **Contenedor `db` (PostgreSQL)**:
    - Basado en una imagen ultraligera Alpine de Linux.
@@ -105,6 +109,32 @@ El entorno modular se compone de dos contenedores orquestados mediante `docker-c
    - Basado en la imagen oficial de Python-slim para reducir la superficie de ataque y el tamaño final de la imagen.
    - Integra la biblioteca de compilación C `libpq-dev` y herramientas de desarrollo para asegurar el correcto acoplamiento del adaptador nativo de PostgreSQL (`psycopg2`).
    - El script `entrypoint.sh` implementa un bucle de bloqueo activo que realiza sondeos de red al puerto `5432` del contenedor de base de datos antes de gatillar Alembic y Uvicorn, previniendo errores de conexión durante el encendido concurrente.
+
+---
+
+## ☁️ 5b. Infraestructura en Producción (Supabase + Render + Vercel)
+
+El despliegue en producción utiliza servicios de nube gestionados para eliminar la dependencia de Docker Compose y garantizar disponibilidad continua.
+
+### Arquitectura Cloud:
+
+| Componente | Servicio | Justificación Técnica |
+| :--- | :--- | :--- |
+| **Base de Datos** | **Supabase** (PostgreSQL gestionado) | Ofrece PostgreSQL 15 con alta disponibilidad, backups automáticos y un pooler de conexiones integrado (PgBouncer). Se usa el **Transaction Pooler** en el puerto `6543` con IPv4 para garantizar compatibilidad con Render. |
+| **Backend API** | **Render** (Web Service / Docker) | Render detecta y construye el `Dockerfile` de `/Backend` automáticamente. Soporta TensorFlow CPU (dependencia pesada, ~500MB) sin restricciones de tamaño que impone Vercel Serverless (50MB). |
+| **Frontend Web** | **Vercel** (CDN estático) | Ejecuta `expo export -p web` para generar un bundle estático en la carpeta `dist`. Vercel sirve los archivos desde su CDN global con SSL automático. |
+
+### Variables de Entorno de Producción:
+
+**Render (Backend)**:
+- `DATABASE_URL`: URI del Connection Pooler de Supabase. **La contraseña no debe contener caracteres especiales** (`@`, `$`, `*`, `#`, `%`) por incompatibilidad con el parser `ConfigParser` de Python que usa Alembic internamente para procesar la URL.
+- `JWT_SECRET`, `ACCESS_TOKEN_EXPIRE_MINUTES`, `ADMIN_USERNAME`, `ADMIN_PASSWORD`.
+
+**Vercel (Frontend)**:
+- `EXPO_PUBLIC_API_URL`: URL pública del backend en Render (ej. `https://corn-backend.onrender.com`). Es leída en tiempo de compilación por `frontend/src/constants/config.ts` mediante `process.env.EXPO_PUBLIC_API_URL`.
+
+### Archivos de Configuración para Vercel:
+- **`frontend/vercel.json`**: Define el directorio de salida (`"outputDirectory": "dist"`) y las reglas de reescritura (`rewrites`) para que todas las rutas del navegador se redirijan a `index.html`, habilitando el ruteo del lado del cliente de Expo Router sin errores 404 al recargar.
 
 ---
 
