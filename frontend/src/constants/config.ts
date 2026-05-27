@@ -15,7 +15,7 @@ const getApiUrl = () => {
     return 'http://localhost:8000';
   }
   // Fallback production URL
-  return 'http://localhost:8000';
+  return process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8000';
 };
 
 export const API_URL = getApiUrl();
